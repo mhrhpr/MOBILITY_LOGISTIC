@@ -281,9 +281,10 @@ A small complete slice is preferred over many unfinished modules.
 - [x] Decision loop
 - [x] Core entity list
 - [x] SQLite decision for Phase 1
+- [x] Initial package structure
 - [ ] Final domain/database schema
 - [ ] Data-source contracts
-- [ ] Project package structure
+- [ ] Configuration layer
 - [ ] First ingestion pipeline
 - [ ] Validation layer
 - [ ] Core storage
