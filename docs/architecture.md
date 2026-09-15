@@ -1,40 +1,19 @@
 # OMIND Mobility Intelligence — Master Architecture
 
-**Version:** 0.1  
-**Repository:** `MOBILITY_LOGISTIC`
+**Version:** 0.2  
+**Repository:** `MOBILITY_LOGISTIC`  
+**Architecture status:** Foundation frozen; implementation begins from the data model.
 
-## 1. System Purpose
+## 1. Purpose
 
 OMIND Mobility Intelligence is an end-to-end Data & AI decision system for mobility and logistics operations.
 
-Its purpose is to connect operational reality with environmental and mobility context, then transform that context into explainable operational decisions.
+The system connects operational events with weather, traffic, route, driver, vehicle, cargo, and time context to produce explainable operational decisions.
 
 ```text
-Observe
-   ↓
-Validate
-   ↓
-Align
-   ↓
-Context
-   ↓
-Assess State
-   ↓
-Check Feasibility
-   ↓
-Predict
-   ↓
-Explain
-   ↓
-Recommend
-   ↓
-Act
-   ↓
-Measure Reality
-   ↓
-Diagnose
-   ↓
-Improve
+Observe → Validate → Align → Context → Assess State → Feasibility
+      → Predict → Explain → Recommend → Act → Measure → Reconcile
+      → Diagnose → Improve
 ```
 
 ---
@@ -45,23 +24,23 @@ Improve
 flowchart TB
     subgraph SOURCES[External & Internal Data Sources]
         W[Weather API]
-        T[Traffic API / Mobility Data]
+        T[Traffic / Mobility Data]
         O[Transport Operations]
         D[Driver Data]
         V[Vehicle & Maintenance Data]
         R[Route / Road Data]
     end
 
-    subgraph INGESTION[Ingestion Layer]
-        WG[Weather Ingestion]
-        TG[Traffic Ingestion]
-        OG[Operations Ingestion]
-        DG[Driver Ingestion]
-        VG[Vehicle Ingestion]
-        RG[Route Ingestion]
+    subgraph INGESTION[Ingestion]
+        WG[Weather Client]
+        TG[Traffic Client]
+        OG[Operations Loader]
+        DG[Driver Loader]
+        VG[Vehicle Loader]
+        RG[Route Loader]
     end
 
-    subgraph RAW[Raw Data Layer]
+    subgraph RAW[Raw Layer]
         WR[(weather_raw)]
         TR[(traffic_raw)]
         OR[(transport_raw)]
@@ -70,14 +49,14 @@ flowchart TB
         RR[(route_raw)]
     end
 
-    subgraph QUALITY[Data Quality & Validation]
+    subgraph QUALITY[Validation & Quality]
         VLD[Schema Validation]
-        DQ[Data Quality Checks]
+        DQ[Data Quality Rules]
         DUP[Duplicates / Missing / Outliers]
-        LINEAGE[Source + Timestamp + Lineage]
+        LINEAGE[Lineage + Source Time + Ingestion Time]
     end
 
-    subgraph CORE[Core Data Model]
+    subgraph CORE[Core Domain Model]
         TP[(trip)]
         TC[(trip_conditions)]
         DP[(driver_profile)]
@@ -89,45 +68,42 @@ flowchart TB
         PE[(prediction_error)]
     end
 
-    subgraph TIME[Time & Spatial Alignment]
-        TA[Time Alignment]
-        SA[Route / Location Matching]
-        SNAP[Historical Condition Snapshot]
+    subgraph ALIGN[Alignment]
+        TA[Temporal Alignment]
+        SA[Spatial / Route Matching]
+        SNAP[Context Snapshot]
     end
 
-    subgraph ANALYTICS[Analytics & Feature Engineering]
+    subgraph ANALYTICS[Analytics & Features]
         CF[Context Features]
-        DF[Driver Performance Features]
-        VF[Vehicle Health Features]
+        DF[Driver Evidence]
+        VF[Vehicle Evidence]
         WF[Weather Features]
         TF[Traffic Features]
+        HIST[Historical Patterns]
         SIM[Similar Trip Retrieval]
-        HIST[Historical Pattern Analysis]
     end
 
-    subgraph DECISION[Prediction & Decision Layer]
+    subgraph DECISION[Decision Engine]
         STATE[Current State Assessment]
-        FEAS[Operational Feasibility Check]
-        PRED[Delay / Travel-Time / Risk Prediction]
-        CONF[Confidence & Evidence]
-        CAUSE[Cause / Factor Analysis]
-        REC[Recommendation / Scenario Comparison]
+        FEAS[Operational Feasibility]
+        PRED[Baseline Prediction]
+        CONF[Confidence + Evidence]
+        CAUSE[Cause Analysis]
+        REC[Recommendation / Scenarios]
     end
 
-    subgraph SERVE[Serving Layer]
+    subgraph SERVE[Serving]
         API[FastAPI]
-        DBQ[Operational / Analytical Queries]
-        UI[Operations Decision Interface]
-        ALERT[Alerts & Recommendations]
+        UI[Decision Interface]
+        ALERT[Alerts]
     end
 
-    subgraph FEEDBACK[Reality & Feedback Loop]
-        ACT[Actual Trip Outcome]
-        RECON[Post-Trip Reconciliation]
-        ERR[Prediction Error Diagnosis]
-        SRCERR[Source / Data Quality Error]
-        MODELERR[Model / Decision Error]
-        FB[Feedback & Improvement]
+    subgraph FEEDBACK[Reality Loop]
+        ACT[Observed Outcome]
+        RECON[Reconciliation]
+        ERR[Error Diagnosis]
+        FB[Feedback / Improvement]
     end
 
     W --> WG --> WR
@@ -199,7 +175,6 @@ flowchart TB
     CONF --> API
     CAUSE --> API
     REC --> API
-    API --> DBQ
     API --> UI
     API --> ALERT
 
@@ -208,14 +183,11 @@ flowchart TB
     PRED --> ACT
     REC --> ACT
     ACT --> TO
-    TO --> RECON
     PP --> RECON
+    TO --> RECON
     RECON --> PE
     PE --> ERR
-    ERR --> SRCERR
-    ERR --> MODELERR
-    SRCERR --> FB
-    MODELERR --> FB
+    ERR --> FB
     FB -. improve .-> DQ
     FB -. improve .-> HIST
     FB -. improve .-> PRED
@@ -223,102 +195,123 @@ flowchart TB
 
 ---
 
-## 3. Layer Responsibilities
+## 3. Runtime Architecture
 
-### 3.1 Sources
-
-The system consumes two broad categories of data:
-
-**External:** weather, traffic, mobility, route, road, incident and public datasets.
-
-**Internal:** transport operations, driver, vehicle, maintenance and trip outcome data.
-
-External data should be real and reproducible where possible. Internal data may initially be synthetic.
-
----
-
-### 3.2 Ingestion Layer
-
-Each source gets a dedicated ingestion responsibility.
-
-The ingestion layer handles:
-
-- HTTP/API communication
-- authentication where required
-- pagination
-- retries
-- rate limits
-- response parsing
-- source timestamps
-- ingestion timestamps
-- raw payload preservation
-
-Important distinction:
-
-> **Request frequency is not an HTTP method.**
-
-GET/POST/etc. describe interface semantics. Scheduling determines how often data is retrieved.
-
----
-
-### 3.3 Raw Data Layer
-
-Raw tables preserve source observations before analytical transformation.
-
-Initial logical areas:
+Phase 1 is intentionally a **single Python application with clear internal boundaries** rather than microservices.
 
 ```text
-weather_raw
-traffic_raw
-transport_raw
-driver_raw
-vehicle_raw
-route_raw
+                    ┌──────────────────────┐
+                    │      FastAPI API      │
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │   Application Layer  │
+                    │       services/      │
+                    └──────────┬───────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+┌───────▼────────┐    ┌────────▼────────┐    ┌───────▼────────┐
+│   Ingestion    │    │    Decision     │    │   Analytics    │
+│   Validation   │    │     Engine      │    │   Alignment    │
+└───────┬────────┘    └────────┬────────┘    └───────┬────────┘
+        │                      │                     │
+        └──────────────────────┼─────────────────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │ Repository / DB Layer│
+                    └──────────┬───────────┘
+                               │
+                         ┌─────▼─────┐
+                         │  SQLite   │
+                         └───────────┘
 ```
 
-Raw records should preserve enough metadata to answer:
-
-- where did this observation come from?
-- when did the source produce it?
-- when did we ingest it?
-- what did the source actually say?
-- was the payload valid?
-
-Raw data should not be silently rewritten because downstream interpretation changed.
+There is one application process, but responsibilities are separated so the system can later evolve without rewriting the domain.
 
 ---
 
-### 3.4 Validation & Data Quality
+## 4. Database Strategy
 
-Validation happens before data becomes trusted domain data.
+### Phase 1 — SQLite
 
-Checks include:
+SQLite is the development database because the current machine may not permit installation of a database server.
 
-- schema validation
-- required fields
-- type validation
-- timestamp validity
-- duplicate detection
-- missing values
-- impossible ranges
-- outliers
-- source freshness
-- referential consistency
-- source lineage
+```text
+Python
+  ↓
+SQLAlchemy
+  ↓
+SQLite file
+```
 
-Data quality failures should be observable rather than hidden.
+The SQLite file belongs under `data/` locally and is not committed to Git.
+
+### Future — PostgreSQL
+
+The intended production migration is:
+
+```text
+SQLAlchemy-based repositories
+          ↓
+SQLite → PostgreSQL
+```
+
+The migration is deliberately isolated from business logic.
 
 ---
 
-### 3.5 Core Data Model
+## 5. Layer Responsibilities
 
-The core model turns validated source observations into domain entities.
+### Sources
+External and internal producers of observations.
 
-#### `trip`
+### Ingestion
+Only source communication, parsing, retries, pagination/rate-limit handling, and raw capture. Ingestion does not make business decisions.
 
-The central transportation event.
+### Raw Layer
+Preserves source payloads and source metadata before interpretation.
 
-Conceptually:
+### Validation
+Checks schemas, types, required fields, timestamp validity, duplicates, missing values, impossible values, freshness, and lineage.
+
+### Core Domain
+Represents trusted business entities such as trips, routes, drivers, vehicles, predictions, outcomes, and error records.
+
+### Alignment
+Transforms independently timed and located observations into context relevant to a trip or route segment.
+
+### Analytics
+Builds historical distributions, context features, and similar-trip retrieval inputs.
+
+### Decision Engine
+Separates:
+
+```text
+Current State
+    ↓
+Feasibility
+    ↓
+Prediction
+    ↓
+Explanation
+    ↓
+Recommendation
+```
+
+### Serving
+FastAPI exposes stable application interfaces. UI and alerts consume the same decision outputs rather than implementing business logic themselves.
+
+### Feedback
+Actual outcomes are stored separately, reconciled with predictions, diagnosed, and used to improve data quality, rules, or models.
+
+---
+
+## 6. Domain Model
+
+### `trip`
+
+Central transportation event.
 
 ```text
 trip_id
@@ -333,13 +326,9 @@ cargo_weight
 delay_minutes
 ```
 
-#### `trip_conditions`
+### `trip_conditions`
 
-A time-indexed context record associated with a trip.
-
-It represents the environmental/operational state observed during a trip rather than a single giant trip row.
-
-Potential fields include:
+Time-indexed context associated with a trip.
 
 ```text
 timestamp
@@ -352,25 +341,13 @@ visibility
 vehicle_status
 ```
 
-#### `driver_profile`
+### `driver_profile`
 
-Stores driver attributes and historical evidence.
+Driver identity/attributes plus evidence useful for historical comparison.
 
-Do not reduce the driver to an unexplained score.
+Do not collapse performance into one unexplained score.
 
-Useful evidence may include:
-
-- experience
-- vehicle types operated
-- trip count
-- average speed
-- delay distribution
-- on-time rate
-- recent vs long-term performance
-
-#### `vehicle_profile`
-
-Stores relatively stable vehicle characteristics.
+### `vehicle_profile`
 
 ```text
 vehicle_id
@@ -381,9 +358,7 @@ fuel_type
 capacity
 ```
 
-#### `vehicle_maintenance`
-
-Stores maintenance and failure events.
+### `vehicle_maintenance`
 
 ```text
 maintenance_id
@@ -396,19 +371,11 @@ downtime_hours
 repair_cost
 ```
 
-#### `route`
+### `route`
 
-Stores route identity and spatial characteristics.
+Route identity and spatial representation. Exact geometry fields remain open until the initial real route source is selected.
 
-The exact geometry model will be defined after the first real route data source is selected.
-
-#### `trip_prediction`
-
-Stores what the system predicted at a specific point in time.
-
-A prediction is immutable evidence of what the system believed before the outcome was known.
-
-Potential fields:
+### `trip_prediction`
 
 ```text
 prediction_id
@@ -421,11 +388,9 @@ confidence
 model_version
 ```
 
-#### `trip_outcome`
+Predictions are immutable records of system belief at a point in time.
 
-Stores observed reality after the trip.
-
-Potential fields:
+### `trip_outcome`
 
 ```text
 outcome_id
@@ -438,11 +403,7 @@ vehicle_failure
 incident
 ```
 
-#### `prediction_error`
-
-Stores the reconciliation and diagnosis of prediction vs reality.
-
-Potential fields:
+### `prediction_error`
 
 ```text
 error_id
@@ -461,13 +422,11 @@ resolved
 
 ---
 
-## 4. Time Alignment
+## 7. Time Alignment Rules
 
-Different variables require different temporal treatment.
+Alignment is variable-specific and must be derived from actual source semantics.
 
-Examples:
-
-| Variable | Possible alignment rule |
+| Variable | Candidate strategy |
 |---|---|
 | Temperature | nearest / interpolation |
 | Humidity | nearest / short-window average |
@@ -476,331 +435,221 @@ Examples:
 | Traffic volume | interval average |
 | Traffic speed | average / weighted average |
 | Traffic level | representative state / mode |
-| Accident | existence within interval |
-| Road closure | status during interval |
+| Incident | existence in interval |
+| Road closure | active status during interval |
 
-The final rule must be determined from the actual source semantics.
-
-No generic "nearest timestamp for everything" rule should be introduced.
+There is no universal nearest-timestamp rule.
 
 ---
 
-## 5. Spatial Alignment
+## 8. Spatial Alignment
 
-The system must determine whether an observation actually belongs to a trip's route context.
-
-Possible strategies include:
+Relevant strategies may include:
 
 - route ID matching
-- road segment matching
+- route segment matching
+- nearest observation point
 - geographic proximity
 - route geometry intersection
-- nearest valid observation point
 
-The chosen strategy depends on the selected data sources.
-
----
-
-## 6. Historical Context
-
-Historical context is not simply "all previous rows".
-
-For a new trip, useful historical context can include:
-
-- same route
-- similar departure time
-- same day-of-week context
-- seasonal context
-- similar weather
-- similar traffic
-- similar cargo
-- similar vehicle
-- comparable driver history
-- similar operational conditions
-
-Exact calendar date should normally have lower importance than the contextual pattern unless the date itself has operational meaning, such as a known holiday or event.
+The first implementation will use the simplest defensible strategy supported by the selected real data sources.
 
 ---
 
-## 7. Driver and Vehicle Evidence
+## 9. Historical Context
 
-Performance should be represented with distributions and multiple time windows where useful.
+A new trip should be compared with contextually similar history, not simply all historical records.
 
-For example:
+Candidate dimensions:
+
+- route
+- departure hour
+- day-of-week
+- season / holiday context
+- weather
+- traffic
+- cargo
+- vehicle
+- driver history
+- operational conditions
+
+Driver and vehicle evidence can be evaluated across recent, longer-term, and all-valid-history windows when sample size justifies it.
+
+Useful distribution summaries include sample size, median, quartiles, spread, and mean where appropriate.
+
+---
+
+## 10. Current State and Feasibility
+
+Current-state assessment answers:
 
 ```text
-Recent window
-Long-term window
-All valid history
-```
-
-The system should retain:
-
-- sample size
-- median
-- quartiles
-- mean where appropriate
-- variance/spread
-- relevant failure/event counts
-
-This avoids making decisions from a tiny or atypical sample.
-
----
-
-## 8. Current State Assessment
-
-Before prediction, the system must establish what is actually happening now.
-
-Example questions:
-
-```text
-Is the vehicle operational?
-Can it move safely?
-Is there an active incident?
+What is happening now?
+How fresh is the observation?
 Is the route available?
-What are current traffic conditions?
-What are current weather conditions?
-How fresh are the observations?
+Is the vehicle operational?
+Is there an active incident?
 ```
 
-Current-state assessment is distinct from forecasting.
+Feasibility answers whether an action can actually be executed.
 
----
-
-## 9. Operational Feasibility
-
-Feasibility comes before optimization.
-
-For a vehicle failure, for example, the system should establish:
+For a vehicle failure:
 
 ```text
 Failure detected
       ↓
-Can vehicle move safely?
+Safety / mobility check
       ↓
 Failure severity
       ↓
 Repair ETA / downtime
       ↓
-Parts / mechanic availability
+Mechanic / parts availability
       ↓
-Alternative vehicle availability
+Alternative vehicle
       ↓
-Future route / traffic / weather
+Future conditions
       ↓
-Only then: scenario comparison
+Scenario comparison
 ```
 
-A recommendation that cannot actually be executed is not a useful recommendation.
+---
+
+## 11. Prediction Strategy
+
+The first model must be transparent and measurable.
+
+Baseline candidates:
+
+1. historical median by route/time context
+2. similar-trip retrieval
+3. simple statistical regression
+4. tree-based models only after feature quality is established
+
+Model complexity is justified only when it produces measurable improvement against the baseline.
 
 ---
 
-## 10. Prediction Layer
+## 12. Evidence and Explanation
 
-The initial prediction layer should start with a transparent baseline.
+Every prediction should be traceable to:
 
-Possible targets:
+- comparable sample size
+- current-data freshness
+- relevant variables
+- historical pattern
+- model/rule version
+- missing or unreliable inputs
 
-- delay minutes
-- travel time
-- probability of significant delay
-- operational risk category
+The decision layer should be able to answer:
 
-The project should not introduce complex ML before a strong baseline exists.
-
-Baseline candidates can include:
-
-- historical median by route/time context
-- comparable-trip retrieval
-- simple statistical regression
-- tree-based models after feature quality is established
-
-Model complexity must be earned by measurable improvement.
+> **Why was this recommendation made?**
 
 ---
 
-## 11. Confidence & Evidence
-
-A prediction without context about its reliability is incomplete.
-
-Confidence should consider factors such as:
-
-- amount of comparable historical data
-- similarity of historical observations
-- freshness of current data
-- missing inputs
-- source reliability
-- model performance in comparable contexts
-
-The system should be able to answer:
-
-> **Why should I trust this recommendation?**
-
----
-
-## 12. Cause Analysis
-
-The system should identify relevant factors rather than only outputting a number.
-
-Example explanation:
-
-```text
-Expected delay: 24–35 min
-
-Main contributing factors:
-- high traffic volume on route segment A
-- heavy precipitation
-- low visibility
-- historical delays under similar conditions
-
-Evidence:
-- 37 comparable trips
-- 72% experienced >20 min delay
-- current observations are 4 minutes old
-```
-
-The exact explanation mechanism will evolve with the model architecture.
-
----
-
-## 13. Recommendation Layer
-
-The recommendation layer converts state + prediction + evidence into operational options.
-
-Examples:
-
-```text
-Option A: depart now
-Option B: delay departure by 20 minutes
-Option C: assign another vehicle
-Option D: use alternate route
-```
-
-Each scenario should expose its assumptions and expected effect.
-
----
-
-## 14. Reality & Feedback Loop
-
-After a trip ends, the system should retrieve or ingest the actual outcome.
+## 13. Feedback and Error Diagnosis
 
 ```text
 Prediction
     ↓
-Trip happens
+Trip occurs
     ↓
 Observed outcome
     ↓
 Reconciliation
     ↓
-Prediction error
+Error measurement
     ↓
 Root-cause classification
 ```
 
-Potential error categories:
+Potential causes include stale data, source errors, temporal mismatch, spatial mismatch, unexpected events, feature problems, model error, and decision/rule error.
 
-- source error
-- stale data
-- temporal alignment error
-- spatial matching error
-- unexpected event
-- data quality problem
-- feature issue
-- model error
-- decision/rule error
-
-The system must distinguish these where possible.
-
-A prediction that was wrong because traffic data became stale is not the same engineering failure as a model that consistently underestimates delays.
+A source-quality failure and a model failure are distinct engineering problems and must be diagnosed separately where possible.
 
 ---
 
-## 15. Serving Layer
-
-The first service boundary is expected to be FastAPI.
-
-Potential endpoint groups:
+## 14. Repository Architecture
 
 ```text
-/api/v1/health
-/api/v1/trips
-/api/v1/routes
-/api/v1/drivers
-/api/v1/vehicles
-/api/v1/current-state
-/api/v1/predictions
-/api/v1/recommendations
-/api/v1/outcomes
-/api/v1/errors
+MOBILITY_LOGISTIC/
+│
+├── app/
+│   ├── api/          # HTTP boundary
+│   ├── core/         # configuration and shared contracts
+│   ├── db/           # SQLAlchemy, models, repositories, sessions
+│   ├── ingestion/    # source clients + ingestion workflows
+│   ├── validation/   # schema + data quality
+│   ├── alignment/    # temporal + spatial alignment
+│   ├── analytics/    # history + feature engineering
+│   ├── decision/     # state + feasibility + prediction + recommendation
+│   └── services/     # orchestration across modules
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── synthetic/
+│
+├── docs/
+│   ├── architecture.md
+│   ├── project-structure.md
+│   ├── data-model.md
+│   └── decisions.md
+│
+├── scripts/
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── data_quality/
+│
+├── migrations/
+├── .github/workflows/
+├── pyproject.toml
+└── .env.example
 ```
 
-Exact endpoints will be defined after the database contracts are frozen.
+Each directory exists because it owns a system responsibility. Empty placeholder folders should be minimized.
 
 ---
 
-## 16. Architectural Decisions Still Open
-
-These are intentionally unresolved until evidence is collected:
-
-1. Exact external weather provider
-2. Exact traffic/mobility provider
-3. Initial geographic scope
-4. Route geometry representation
-5. Operational database vs analytical database separation
-6. Batch vs streaming ingestion boundaries
-7. Baseline prediction algorithm
-8. Recommendation optimization method
-9. UI technology
-10. Deployment target
-
-These should not be guessed prematurely.
-
----
-
-## 17. Implementation Order
-
-The correct implementation sequence is:
+## 15. Implementation Sequence
 
 ```text
-1. Data source contracts
-2. Domain model
-3. PostgreSQL schema
-4. Project folder structure
-5. Configuration management
-6. Ingestion clients
-7. Raw storage
-8. Validation
-9. Core data loading
-10. Time/spatial alignment
-11. Historical retrieval
-12. Current-state engine
-13. Baseline prediction
-14. Outcome reconciliation
-15. Error diagnosis
-16. FastAPI
-17. Tests
-18. Docker / CI
-19. UI
-20. Advanced ML / optimization
+1. Define source contracts
+2. Freeze domain model
+3. Define SQLite schema
+4. Create package structure
+5. Create application configuration
+6. Implement one real ingestion path
+7. Store raw observations
+8. Validate observations
+9. Load trusted domain entities
+10. Implement temporal/spatial alignment
+11. Build historical context
+12. Implement current-state assessment
+13. Implement feasibility checks
+14. Implement transparent baseline prediction
+15. Store predictions
+16. Store outcomes
+17. Reconcile and diagnose errors
+18. Add FastAPI endpoints
+19. Add tests
+20. Add observability
+21. Migrate to PostgreSQL when operationally justified
+22. Add advanced ML/optimization only after baseline evidence
 ```
-
-The project should not jump directly from API ingestion to an ML model.
 
 ---
 
-## 18. Engineering Standard
+## 16. Architecture Decisions Frozen for Phase 1
 
-Every major component should have explicit:
+- One Python application, not microservices.
+- SQLite locally; database access through SQLAlchemy.
+- Raw data is separated from trusted domain data.
+- Current state is separated from historical context.
+- Feasibility precedes optimization.
+- Predictions and outcomes are stored separately.
+- Error diagnosis distinguishes source/data issues from model/decision issues.
+- Advanced ML is deferred until the baseline works.
 
-```text
-Responsibility
-Inputs
-Outputs
-Dependencies
-Failure modes
-Tests
-Observability
-```
-
-The repository should remain understandable to another engineer without requiring private verbal explanations.
+Open decisions such as the exact external providers, geography, route geometry, and final prediction algorithm remain evidence-driven.
