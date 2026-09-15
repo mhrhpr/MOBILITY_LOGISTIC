@@ -2,653 +2,302 @@
 
 ## OMIND Mobility Intelligence
 
-A production-oriented Data & AI decision system for mobility and logistics operations.
+An end-to-end Data & AI decision system for mobility and logistics operations.
 
 The system is designed to answer a practical operational question:
 
-> **How do weather, traffic, route, driver, vehicle, cargo, and time conditions affect transportation operations — and what should the operation do next?**
+> **Given the current route, traffic, weather, vehicle, driver, cargo, and time context, what is likely to happen next, why, how reliable is the prediction, and what should the operation do?**
 
-This project is intentionally built as an end-to-end engineering system rather than a standalone dashboard or machine-learning notebook.
-
----
-
-## 1. Project Vision
-
-OMIND Mobility Intelligence combines external mobility/environmental data with transportation operations data to build a historical, context-aware decision system.
-
-The system should be able to:
-
-- ingest external and internal data
-- preserve raw source data
-- validate and trace data quality
-- align observations by time and route/location
-- build a consistent operational data model
-- retrieve historically similar trips and conditions
-- analyze operational patterns
-- assess the current operational state
-- predict delay, travel time, and operational risk
-- explain the main contributing factors
-- compare possible operational scenarios
-- store predictions and actual outcomes separately
-- diagnose prediction errors
-- feed verified failures and outcomes back into the system
-
-The core engineering principle is:
-
-```text
-Observe → Understand → Predict → Decide → Act → Measure → Diagnose → Improve
-```
+This repository is intentionally built as an engineering system rather than a dashboard, notebook, or isolated ML model.
 
 ---
 
-## 2. Core Business Problem
-
-Transportation decisions are rarely determined by a single variable.
-
-A trip can be affected by combinations of:
-
-- weather
-- precipitation and visibility
-- traffic volume and speed
-- route characteristics
-- departure time
-- day of week and season
-- driver experience and historical behavior
-- vehicle type and condition
-- maintenance history
-- cargo characteristics
-- incidents, road works, and closures
-- unexpected operational events
-
-A useful decision system therefore needs **context**, not isolated metrics.
-
-The project aims to move from:
+## 1. Core Decision Loop
 
 ```text
-"What is happening?"
+Observe → Validate → Align → Context → Assess State → Check Feasibility
+      → Predict → Explain → Recommend → Act → Measure Reality
+      → Reconcile → Diagnose → Improve
 ```
 
-toward:
-
-```text
-"Given what is happening now, what is likely to happen next,
-why, how confident are we, and what should we do?"
-```
+A prediction is not treated as reality, and an incorrect prediction is not automatically treated as a model failure.
 
 ---
 
-## 3. System Scope
+## 2. System Scope
 
 ### External data
 
-Potential external sources include:
+Potential sources include weather, traffic/mobility, public transport, route/road-network, incident, road-work, and closure datasets.
 
-- Weather APIs
-- Traffic / mobility APIs
-- Public transport and road datasets
-- Route and road-network data
-- Incident / road-work / closure data
+### Operational data
 
-### Internal operational data
+The domain model represents trips, routes, drivers, vehicles, maintenance events, cargo, predictions, and observed outcomes.
 
-The project uses a realistic operational model for:
-
-- trips
-- drivers
-- vehicles
-- maintenance
-- routes
-- cargo
-- operational outcomes
-
-When real company data is unavailable, internal operational data will be explicitly marked as **synthetic**. External environmental data can remain real and reproducible.
-
-The architecture must never pretend synthetic data is real company data.
+When real company data is unavailable, operational data is synthetic and explicitly labelled as such. The project never presents synthetic data as real company data.
 
 ---
 
-## 4. Architecture
-
-The system is organized into the following layers:
+## 3. Master Architecture
 
 ```text
-External & Internal Sources
-            ↓
-       Ingestion Layer
-            ↓
-        Raw Data Layer
-            ↓
-   Validation & Data Quality
-            ↓
-       Core Data Model
-            ↓
+External / Internal Sources
+          ↓
+     Ingestion Layer
+          ↓
+      Raw Data Layer
+          ↓
+ Validation & Data Quality
+          ↓
+     Core Data Model
+          ↓
  Time / Spatial Alignment
-            ↓
+          ↓
  Analytics & Feature Engineering
-            ↓
+          ↓
  Current State Assessment
-            ↓
+          ↓
  Prediction & Decision Layer
-            ↓
-       Serving Layer
-            ↓
-       Actual Outcome
-            ↓
- Prediction Error Diagnosis
-            ↓
-       Feedback / Improvement
+          ↓
+     Serving Layer
+          ↓
+    Actual Outcome
+          ↓
+ Prediction Reconciliation
+          ↓
+ Error / Root-Cause Diagnosis
+          ↓
+   Feedback & Improvement
 ```
 
-The detailed architecture is maintained in:
-
-- [`docs/architecture.md`](docs/architecture.md)
+Canonical system architecture: [`docs/architecture.md`](docs/architecture.md)
 
 ---
 
-## 5. Master Data Flow
+## 4. Technology Decision — SQLite First
 
-```mermaid
-flowchart TB
-    subgraph SOURCES[External & Internal Data Sources]
-        W[Weather API]
-        T[Traffic API / Mobility Data]
-        O[Transport Operations]
-        D[Driver Data]
-        V[Vehicle & Maintenance Data]
-        R[Route / Road Data]
-    end
+The development environment may restrict installation of database servers. Therefore Phase 1 uses **SQLite** as the local relational database.
 
-    subgraph INGESTION[Ingestion Layer]
-        WG[Weather Ingestion]
-        TG[Traffic Ingestion]
-        OG[Operations Ingestion]
-        DG[Driver Ingestion]
-        VG[Vehicle Ingestion]
-        RG[Route Ingestion]
-    end
-
-    subgraph RAW[Raw Data Layer]
-        WR[(weather_raw)]
-        TR[(traffic_raw)]
-        OR[(transport_raw)]
-        DR[(driver_raw)]
-        VR[(vehicle_raw)]
-        RR[(route_raw)]
-    end
-
-    subgraph QUALITY[Data Quality & Validation]
-        VLD[Schema Validation]
-        DQ[Data Quality Checks]
-        DUP[Duplicates / Missing / Outliers]
-        LINEAGE[Source + Timestamp + Lineage]
-    end
-
-    subgraph CORE[Core Data Model]
-        TP[(trip)]
-        TC[(trip_conditions)]
-        DP[(driver_profile)]
-        VP[(vehicle_profile)]
-        VM[(vehicle_maintenance)]
-        RP[(route)]
-        PP[(trip_prediction)]
-        TO[(trip_outcome)]
-        PE[(prediction_error)]
-    end
-
-    subgraph TIME[Time & Spatial Alignment]
-        TA[Time Alignment]
-        SA[Route / Location Matching]
-        SNAP[Historical Condition Snapshot]
-    end
-
-    subgraph ANALYTICS[Analytics & Feature Engineering]
-        CF[Context Features]
-        DF[Driver Performance Features]
-        VF[Vehicle Health Features]
-        WF[Weather Features]
-        TF[Traffic Features]
-        SIM[Similar Trip Retrieval]
-        HIST[Historical Pattern Analysis]
-    end
-
-    subgraph DECISION[Prediction & Decision Layer]
-        STATE[Current State Assessment]
-        FEAS[Operational Feasibility Check]
-        PRED[Delay / Travel-Time / Risk Prediction]
-        CONF[Confidence & Evidence]
-        CAUSE[Cause / Factor Analysis]
-        REC[Recommendation / Scenario Comparison]
-    end
-
-    subgraph SERVE[Serving Layer]
-        API[FastAPI]
-        DBQ[Operational / Analytical Queries]
-        UI[Operations Decision Interface]
-        ALERT[Alerts & Recommendations]
-    end
-
-    subgraph FEEDBACK[Reality & Feedback Loop]
-        ACT[Actual Trip Outcome]
-        RECON[Post-Trip Reconciliation]
-        ERR[Prediction Error Diagnosis]
-        SRCERR[Source / Data Quality Error]
-        MODELERR[Model / Decision Error]
-        FB[Feedback & Improvement]
-    end
-
-    W --> WG --> WR
-    T --> TG --> TR
-    O --> OG --> OR
-    D --> DG --> DR
-    V --> VG --> VR
-    R --> RG --> RR
-
-    WR --> VLD
-    TR --> VLD
-    OR --> VLD
-    DR --> VLD
-    VR --> VLD
-    RR --> VLD
-    VLD --> DQ --> DUP --> LINEAGE
-
-    LINEAGE --> TP
-    LINEAGE --> TC
-    LINEAGE --> DP
-    LINEAGE --> VP
-    LINEAGE --> VM
-    LINEAGE --> RP
-
-    TP --> TC
-    TP --> DP
-    TP --> VP
-    TP --> RP
-    VP --> VM
-
-    TP --> TA
-    TC --> TA
-    RP --> SA
-    TA --> SNAP
-    SA --> SNAP
-
-    SNAP --> CF
-    SNAP --> WF
-    SNAP --> TF
-    DP --> DF
-    VP --> VF
-    TP --> HIST
-    CF --> HIST
-    HIST --> SIM
-    DF --> SIM
-    VF --> SIM
-    WF --> SIM
-    TF --> SIM
-
-    SNAP --> STATE
-    STATE --> FEAS
-    SIM --> PRED
-    CF --> PRED
-    DF --> PRED
-    VF --> PRED
-    WF --> PRED
-    TF --> PRED
-    FEAS --> PRED
-
-    PRED --> CONF
-    PRED --> CAUSE
-    CAUSE --> REC
-    CONF --> REC
-    STATE --> REC
-
-    PRED --> PP
-    STATE --> API
-    PRED --> API
-    CONF --> API
-    CAUSE --> API
-    REC --> API
-    API --> DBQ
-    API --> UI
-    API --> ALERT
-
-    TP --> ACT
-    STATE --> ACT
-    PRED --> ACT
-    REC --> ACT
-    ACT --> TO
-    TO --> RECON
-    PP --> RECON
-    RECON --> PE
-    PE --> ERR
-    ERR --> SRCERR
-    ERR --> MODELERR
-    SRCERR --> FB
-    MODELERR --> FB
-    FB -. improve .-> DQ
-    FB -. improve .-> HIST
-    FB -. improve .-> PRED
+```text
+Application
+    ↓
+Repository / Data Access Layer
+    ↓
+SQLite
 ```
+
+Business logic must not depend directly on SQLite-specific implementation details.
+
+Intended migration path:
+
+```text
+SQLite → PostgreSQL
+```
+
+This should be an infrastructure migration rather than a domain rewrite.
+
+### Initial stack
+
+- **Python** — application and data engineering
+- **FastAPI** — service/API boundary
+- **SQLite** — local zero-server relational database
+- **SQLAlchemy** — database abstraction and ORM
+- **Pydantic** — data contracts and validation
+- **Pandas / Polars** — analytical processing where justified
+- **pytest** — automated testing
+
+Docker, CI/CD, PostgreSQL, and advanced ML are deferred until they provide measurable value.
+
+---
+
+## 5. Core Domain Entities
+
+| Entity | Responsibility |
+|---|---|
+| `trip` | Central transportation event |
+| `trip_conditions` | Time-indexed conditions associated with a trip |
+| `driver_profile` | Driver attributes and historical evidence |
+| `vehicle_profile` | Vehicle characteristics |
+| `vehicle_maintenance` | Maintenance, repair, and failure events |
+| `route` | Route identity and spatial context |
+| `trip_prediction` | Immutable prediction records |
+| `trip_outcome` | Observed post-trip reality |
+| `prediction_error` | Prediction-vs-reality reconciliation and diagnosis |
+
+Raw source records remain separate from the trusted core model.
 
 ---
 
 ## 6. Architectural Principles
 
-### 6.1 Raw data is immutable
+### Raw data is preserved
 
-Raw source observations should be preserved as received whenever practical.
+Source observations should be retained as received whenever practical. Downstream interpretation must not silently rewrite source truth.
 
-We do not overwrite historical source truth simply because a later observation or correction exists.
+### Current state is different from history
 
-### 6.2 Current state and historical context are different
+Current observations answer **what is happening now**. Historical context answers **what happened under similar conditions**. They are joined explicitly for decision-making.
 
-Current conditions answer:
+### Time alignment is semantic
 
-> What is happening now?
+Variables require different temporal treatment. Precipitation may require interval aggregation, while temperature may use a nearest observation or interpolation.
 
-Historical data answers:
+### Spatial alignment is explicit
 
-> What usually happens under similar conditions?
+An observation is useful only when its location can be meaningfully associated with the trip route or route segment.
 
-They are joined for analysis and prediction, not mixed into an ambiguous single state.
+### No unexplained magic scores
 
-### 6.3 Time alignment is a first-class problem
+The system prefers evidence, distributions, sample sizes, and explicit calculations over opaque values such as `Driver Score = 83`.
 
-Weather, traffic, and operational events do not necessarily arrive at the same timestamp.
+### Feasibility before optimization
 
-Alignment rules must depend on the variable's semantics.
+A recommendation must first be physically and operationally executable. Vehicle failure, for example, requires assessment of safety, severity, repair time, resources, alternatives, and future conditions before optimization.
 
-Examples:
-
-- temperature → nearest observation or interpolation
-- precipitation → interval aggregation
-- traffic volume → interval average
-- traffic level → mode / representative state
-- incidents → existence within the relevant interval
-- visibility → nearest or conservative interval statistic
-
-### 6.4 Spatial alignment is equally important
-
-A weather observation is only useful for a trip when its location can be meaningfully associated with the route or route segment.
-
-The system therefore treats route/location matching as an explicit processing step.
-
-### 6.5 No magic scores without evidence
-
-The project avoids unexplained values such as:
+### Prediction and reality are separate
 
 ```text
-Driver Score = 83
-Vehicle Health = 71
+Prediction → Actual Outcome → Reconciliation → Diagnosis
 ```
 
-unless the underlying definition, inputs, window, and calculation are explicit.
-
-Evidence is preferred over opaque scoring.
-
-### 6.6 Feasibility before optimization
-
-A recommendation is meaningless if the proposed action is physically or operationally impossible.
-
-For example, a vehicle failure must first be assessed for:
-
-- whether the vehicle can safely move
-- failure type
-- repair estimate
-- mechanic / parts availability
-- expected downtime
-- alternative vehicle availability
-- future traffic and weather conditions
-
-Only after feasibility is established should optimization or scenario comparison occur.
-
-### 6.7 Prediction and reality are separate records
-
-A prediction is not a fact.
-
-The system therefore stores:
-
-```text
-Prediction → Actual Outcome → Error Diagnosis
-```
-
-rather than replacing a prediction with what eventually happened.
+Historical predictions remain immutable evidence of what the system believed at the time.
 
 ---
 
-## 7. Core Entities
+## 7. Repository Structure
 
-Initial domain model:
-
-| Entity | Purpose |
-|---|---|
-| `trip` | Central transportation event |
-| `trip_conditions` | Time-indexed environmental and operational context |
-| `driver_profile` | Driver attributes and historical evidence |
-| `vehicle_profile` | Vehicle specifications and characteristics |
-| `vehicle_maintenance` | Maintenance and failure history |
-| `route` | Route and spatial context |
-| `trip_prediction` | Immutable prediction records |
-| `trip_outcome` | Observed post-trip reality |
-| `prediction_error` | Error and root-cause diagnosis |
-
-Raw ingestion tables will remain separate from the analytical/core model.
-
----
-
-## 8. Decision Loop
-
-The central intelligence loop is:
-
-```text
-1. Observe
-2. Validate
-3. Align
-4. Build Context
-5. Assess Current State
-6. Check Feasibility
-7. Retrieve Similar History
-8. Predict
-9. Explain
-10. Recommend
-11. Execute
-12. Observe Reality
-13. Reconcile
-14. Diagnose Error
-15. Improve
-```
-
-This loop is more important than any individual ML model.
-
----
-
-## 9. Technology Direction
-
-The initial implementation is expected to use:
-
-- **Python** — core engineering and data processing
-- **FastAPI** — service/API layer
-- **PostgreSQL** — primary relational data store
-- **Pandas / Polars** — analytical data processing where appropriate
-- **Pydantic** — schema validation
-- **SQLAlchemy** — database access layer
-- **Docker** — reproducible local environment
-- **pytest** — automated testing
-- **GitHub Actions** — CI
-- **Machine Learning / statistical models** — introduced only after the data and baseline decision logic are reliable
-
-Technology choices remain implementation decisions and must be justified by project requirements rather than added for resume keyword density.
-
----
-
-## 10. Development Strategy
-
-The project will be developed incrementally.
-
-### Phase 0 — Architecture
-
-- freeze system boundaries
-- define domain entities
-- define database schema
-- define data contracts
-- select initial data sources
-
-### Phase 1 — Data Foundation
-
-- build ingestion clients
-- preserve raw data
-- implement validation
-- implement lineage
-- create PostgreSQL schema
-
-### Phase 2 — Context Engine
-
-- time alignment
-- route/location matching
-- historical snapshots
-- feature generation
-- similar-trip retrieval
-
-### Phase 3 — Decision Engine
-
-- current-state assessment
-- feasibility checks
-- baseline delay/travel-time prediction
-- confidence and evidence
-- recommendation logic
-
-### Phase 4 — Feedback System
-
-- post-trip reconciliation
-- outcome storage
-- prediction error analysis
-- source/data/model error classification
-
-### Phase 5 — Productionization
-
-- FastAPI endpoints
-- operational UI
-- alerts
-- Docker
-- automated tests
-- CI/CD
-- monitoring and observability
-
-### Phase 6 — Advanced Intelligence
-
-Only after the baseline system works:
-
-- stronger predictive models
-- model comparison
-- feature importance / explainability
-- scenario simulation
-- optimization
-- online or scheduled retraining where justified
-
----
-
-## 11. What This Project Demonstrates
-
-This repository is designed to demonstrate practical engineering capability across the full lifecycle of a data/AI system:
-
-- API integration
-- data ingestion
-- data contracts
-- validation
-- data quality
-- relational modeling
-- temporal reasoning
-- spatial reasoning
-- feature engineering
-- historical retrieval
-- predictive modeling
-- decision logic
-- explainability
-- feedback loops
-- backend API development
-- testing
-- containerization
-- production-oriented architecture
-
-The goal is not to produce the largest model.
-
-The goal is to build a system that can **observe reality, reason over context, make a defensible decision, and learn from what actually happened.**
-
----
-
-## 12. Repository Structure
-
-The repository will evolve toward a structure similar to:
+The structure is derived from system responsibilities, not from arbitrary file categories.
 
 ```text
 MOBILITY_LOGISTIC/
 │
-├── README.md
+├── app/
+│   ├── api/              # HTTP/API boundary
+│   ├── core/             # configuration and shared contracts
+│   ├── db/               # SQLAlchemy, sessions, models, repositories
+│   ├── ingestion/        # source clients and ingestion workflows
+│   ├── validation/       # schema and data-quality validation
+│   ├── alignment/        # temporal and spatial alignment
+│   ├── analytics/        # historical analysis and feature engineering
+│   ├── decision/         # state, feasibility, prediction, explanation, recommendation
+│   └── services/         # cross-module application orchestration
+│
+├── data/
+│   ├── raw/              # source payloads / snapshots
+│   ├── processed/        # validated/transformed datasets
+│   └── synthetic/        # explicitly synthetic operational datasets
+│
 ├── docs/
 │   ├── architecture.md
+│   ├── project-structure.md
 │   ├── data-model.md
 │   └── decisions.md
 │
-├── app/
-│   ├── api/
-│   ├── core/
-│   ├── db/
-│   ├── ingestion/
-│   ├── validation/
-│   ├── alignment/
-│   ├── analytics/
-│   ├── decision/
-│   └── services/
-│
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── synthetic/
-│
+├── scripts/
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   └── data_quality/
 │
-├── scripts/
-├── migrations/
-├── docker/
-├── .github/
-│   └── workflows/
+├── migrations/           # introduced when schema migration workflow is needed
+├── .github/workflows/    # CI introduced after the executable foundation exists
 │
 ├── pyproject.toml
-├── Dockerfile
-├── docker-compose.yml
-└── .env.example
+├── .env.example
+├── Dockerfile            # deferred until containerization is useful
+└── README.md
 ```
 
-This structure is a target, not a reason to create empty folders prematurely. Each directory will be introduced when its responsibility is defined.
+Empty folders are not created merely for appearance. Each directory is introduced when its responsibility and first real artifact are defined.
 
 ---
 
-## 13. Project Status
+## 8. Development Order
 
-**Current status: Architecture / Foundation**
+```text
+1. Freeze data-source contracts
+2. Freeze domain model
+3. Design SQLite schema through SQLAlchemy
+4. Create project/package structure
+5. Build configuration layer
+6. Build one ingestion client end-to-end
+7. Preserve raw data
+8. Validate data
+9. Load trusted core entities
+10. Implement time/spatial alignment
+11. Build historical context retrieval
+12. Implement current-state assessment
+13. Implement feasibility checks
+14. Build a transparent baseline predictor
+15. Store predictions
+16. Store actual outcomes
+17. Reconcile prediction vs reality
+18. Diagnose errors
+19. Expose stable FastAPI endpoints
+20. Add tests and observability
+21. Migrate to PostgreSQL when justified
+22. Introduce advanced ML / optimization only when baseline evidence supports it
+```
+
+---
+
+## 9. Phase 1 Definition of Done
+
+The first meaningful milestone is a working vertical slice:
+
+```text
+Real External Data
+      ↓
+Ingestion
+      ↓
+Validation
+      ↓
+SQLite Storage
+      ↓
+Context Construction
+      ↓
+Baseline Prediction / Decision
+      ↓
+API Output
+      ↓
+Stored Prediction
+      ↓
+Observed Outcome
+      ↓
+Reconciliation
+```
+
+A small complete slice is preferred over many unfinished modules.
+
+---
+
+## 10. Project Status
+
+**Current status: Architecture → Data Model → Implementation Foundation**
 
 - [x] Problem definition
 - [x] System concept
 - [x] Master architecture
-- [x] Core decision loop
-- [x] Initial domain entities
-- [ ] Final database schema
-- [ ] Data-source selection
-- [ ] Data contracts
-- [ ] Ingestion implementation
-- [ ] PostgreSQL implementation
+- [x] Decision loop
+- [x] Core entity list
+- [x] SQLite decision for Phase 1
+- [ ] Final domain/database schema
+- [ ] Data-source contracts
+- [ ] Project package structure
+- [ ] First ingestion pipeline
+- [ ] Validation layer
+- [ ] Core storage
 - [ ] Alignment engine
-- [ ] Baseline prediction
-- [ ] Decision engine
-- [ ] Feedback loop
-- [ ] API
-- [ ] UI
+- [ ] Baseline predictor
+- [ ] Reconciliation loop
+- [ ] FastAPI
+- [ ] Tests
 - [ ] Production deployment
 
 ---
 
-## 14. Engineering Rule
+## 11. Engineering Rule
 
-> **Do not code a component until its responsibility, inputs, outputs, and relationship to the rest of the system are understood.**
+> **Do not code a component until its responsibility, inputs, outputs, dependencies, failure modes, and tests are understood.**
 
 Architecture first. Evidence second. Implementation third.
